@@ -1,18 +1,10 @@
-# feedpunk
+# pollpunk
 
-A [scuttlebutt](https://www.scuttlebutt.nz) client in the terminal.
+A [scuttlebutt](https://www.scuttlebutt.nz) client for viewing and interacting with polls in the terminal.
 
-![screenshot](./screenshot.png)
+Forked from [staltz's feedpunk](https://github.com/staltz/feedpunk)
 
 features (so far):
-
-* unsorted, unfiltered infinite scrolling list of all your SSB data
-* view a message
-* connects to peers
-
-# install
-
-`npm i -g @staltz/feedpunk`
 
 # usage
 
