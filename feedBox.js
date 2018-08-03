@@ -15,6 +15,7 @@ const feedBox = blessed.ListTable({
   keys: true,
   vi: true,
   mouse: true,
+  noCellBorders: true,
   border: 'line',
   style: {
     item: {
