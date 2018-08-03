@@ -15,6 +15,7 @@
     "blessed": "0.1.81",
     "human-time": "0.0.1",
     "pull-stream": "^3.6.8",
+    "scuttle-poll": "^1.2.0",
     "scuttlebot": "^11.3.3",
     "ssb-about": "0.1.2",
     "ssb-backlinks": "0.7.3",
@@ -24,6 +25,7 @@
     "ssb-contacts": "0.0.2",
     "ssb-friends": "2.4.0",
     "ssb-keys": "7.0.16",
+    "ssb-poll-schema": "^1.6.1",
     "ssb-private": "0.2.3",
     "ssb-query": "2.1.0",
     "ssb-serve-blobs": "1.0.0"

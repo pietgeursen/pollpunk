@@ -1,30 +1,21 @@
 const blessed = require('blessed')
 const pull = require('pull-stream')
 const { renderTime } = require('./utils')
+const Poll = require('scuttle-poll')
 
 const label = ' {bold}{green-fg}Feed{/green-fg}{/bold} '
 
-const feedBox = blessed.list({
+const feedBox = blessed.ListTable({
   top: 'top',
   left: 29,
   right: 0,
   height: '100%',
-  label: label,
   scrollable: true,
   tags: true,
   keys: true,
   vi: true,
   mouse: true,
   border: 'line',
-  scrollbar: {
-    ch: ' ',
-    track: {
-      bg: 'black'
-    },
-    style: {
-      inverse: true
-    }
-  },
   style: {
     item: {
       hover: {
@@ -36,39 +27,12 @@ const feedBox = blessed.list({
       fg: '#00ff88',
       bold: true
     }
-  },
-  search: function(callback) {
-    // prompt.input('Search:', '', function(err, value) {
-    //   if (err) return
-    //   return callback(null, value)
-    // })
   }
 })
 
-function renderPost(msg, box) {
-  if (msg.value.content && msg.value.content.type !== 'post') return false
-  const originalText = msg.value.content.text
-  if (!originalText) return false
-  const indent = '    '
-  const usableWidth = box.width - indent.length - 10
-  const lines = Array.from(originalText).reduce(
-    (lines, char) => {
-      let lastline = lines[lines.length - 1]
-      if (lastline.length >= usableWidth) {
-        lines.push('')
-        lastline = lines[lines.length - 1]
-      }
-      lastline = lastline + char
-      lines[lines.length - 1] = lastline
-      return lines
-    },
-    ['']
-  )
-  return '\n' + indent + lines.join('\n' + indent)
-}
-
 const addNameToMsg = ssb => (msg, cb) => {
   ssb.about.get(msg.author, (err, about) => {
+    console.log(err, about)
     if (err) return cb(err)
     const authorKey = msg.value.author
     if (!about[authorKey]) return cb(null, msg)
@@ -80,8 +44,15 @@ const addNameToMsg = ssb => (msg, cb) => {
     cb(null, msg)
   })
 }
+function renderPollSummary (msg, box) {
+  let msgtype = msg.value.content.type || '?'
+  let author = msg.value.authorName ? msg.value.authorName + ' ' : ''
+  author = (author + '                       ').slice(0, 18)
+  const timeago = renderTime(msg.value)
 
-function renderMsg(msg, box) {
+  return [msg.title, `by ${author}`, `(${timeago})`]
+}
+function renderMsg (msg, box) {
   let msgtype = msg.value.content.type || '?'
   if (msgtype === 'post') {
     msgtype = '{yellow-fg}post{/yellow-fg}'
@@ -90,8 +61,6 @@ function renderMsg(msg, box) {
   } else {
     msgtype = (msgtype + '                ').slice(0, 12)
   }
-  const authorKeyFull = msg.value.author
-  const authorKey = msg.value.author
   let author = msg.value.authorName ? msg.value.authorName + ' ' : ''
   author = (author + '                       ').slice(0, 18)
   const timeago = renderTime(msg.value)
@@ -99,30 +68,33 @@ function renderMsg(msg, box) {
   return `${msgtype} by ${author} (${timeago})`
 }
 
-feedBox.showExistingFeed = function() {
+feedBox.showExistingFeed = function () {
   this.ssbRecentCount = 0
   this.setLabel(label)
   this.clearItems()
+  this.polls = Poll(this.ssb)
+  this.feedData = [['Title', 'Author', 'Created']]
+  this.setData(this.feedData)
 
   pull(
-    this.ssb.createFeedStream({
-      reverse: true,
-      live: false,
-      limit: this.height + 20
-    }),
-    pull.filter(msg => msg && msg.value && msg.value.content),
-    pull.asyncMap(addNameToMsg(this.ssb)),
+    this.polls.poll.pull.all({reverse: true}),
+    pull.filter(this.polls.poll.sync.isPoll),
+    pull.asyncMap((msg, cb) => this.polls.poll.async.get(msg.key, cb)),
+    // pull.asyncMap(addNameToMsg(this.ssb)),
     pull.drain(msg => {
-      const idx = this.pushItem(renderMsg(msg, this))
-      const item = this.getItem(idx - 1)
-      item.ssbMsgKey = msg.key
-      this.ssbLowest = msg.value.timestamp
+      var newPoll = renderPollSummary(msg, this)
+      this.feedData.push(newPoll)
+      this.setData(this.feedData)
+      // const idx = this.pushItem(renderPollSummary(msg, this))
+      // const item = this.getItem(idx - 1)
+      // item.ssbMsgKey = msg.key
+      // this.ssbLowest = msg.value.timestamp
       this.screen.render()
     })
   )
 }
 
-feedBox.pullOlder = function() {
+feedBox.pullOlder = function () {
   pull(
     this.ssb.createFeedStream({
       reverse: true,
@@ -142,7 +114,7 @@ feedBox.pullOlder = function() {
   )
 }
 
-feedBox.alwaysUpdateLabelWithRecents = function() {
+feedBox.alwaysUpdateLabelWithRecents = function () {
   this.ssbRecentCount = 0
 
   pull(
@@ -160,7 +132,7 @@ feedBox.alwaysUpdateLabelWithRecents = function() {
   )
 }
 
-feedBox.pullRecentsWhenRequested = function() {
+feedBox.pullRecentsWhenRequested = function () {
   this.screen.key(['k'], (ch, key) => {
     if (this.getScroll() === 0 && this.ssbRecentCount) this.showExistingFeed()
   })
@@ -169,13 +141,13 @@ feedBox.pullRecentsWhenRequested = function() {
   })
 }
 
-feedBox.pullOlderWhenRequested = function() {
+feedBox.pullOlderWhenRequested = function () {
   this.screen.key(['j'], (ch, key) => {
     if (this.getScroll() >= this.getScrollHeight() - 1) this.pullOlder()
   })
 }
 
-feedBox.setSSB = function(ssb) {
+feedBox.setSSB = function (ssb) {
   this.ssb = ssb
   this.showExistingFeed()
   this.alwaysUpdateLabelWithRecents()
